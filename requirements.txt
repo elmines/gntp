@@ -2,7 +2,7 @@ numpy
 scipy
 nmslib
 parsimonious
-sklearn
+scikit-learn
 tabulate
 termcolor
 tqdm

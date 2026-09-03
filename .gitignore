@@ -1,3 +1,5 @@
+.venv/
+
 # OSX specific
 .DS_Store
 
