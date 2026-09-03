@@ -1,4 +1,9 @@
+# Ethan's .venv
 .venv/
+
+# Slurm files
+*.out
+*.err
 
 # OSX specific
 .DS_Store
