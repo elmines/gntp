@@ -465,7 +465,7 @@ def neural_or(neural_kb: List[List[List[Union[tf.Tensor, str]]]],
 
     It is defined as follows:
 
-    OR(G, d, S) = [ S' | S' \in AND(HEAD, d, UNIFY(HEAD, GOAL, S))
+    OR(G, d, S) = [ S' | S' \\in AND(HEAD, d, UNIFY(HEAD, GOAL, S))
                          for HEAD <- BODY in KB ]
 
     Assume we have a goal of shape [GE, GE, GE],
