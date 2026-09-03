@@ -15,7 +15,6 @@ import numpy as np
 import multiprocessing
 
 import tensorflow as tf
-import tensorflow.contrib.eager as tfe
 
 from gntp.evaluation.classification import evaluate_classification
 from gntp.evaluation import evaluate, evaluate_per_predicate
@@ -255,13 +254,12 @@ def main(argv):
     save_ranks_prefix = args.save_ranks_prefix
 
     # fire up eager
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-
-    tf.enable_eager_execution(config=config)
+    tf.config.run_functions_eagerly(True)
+    for gpu in tf.config.list_physical_devices('GPU'):
+        tf.config.experimental.set_memory_growth(gpu, True)
 
     # set the seeds
-    tf.set_random_seed(seed)
+    tf.random.set_seed(seed)
     np.random.seed(seed)
     random_state = np.random.RandomState(seed)
 
@@ -269,7 +267,7 @@ def main(argv):
     kernel_parameters = []
 
     if is_train_slope is True:
-        kernel_slope = tfe.Variable(1.0, dtype=tf.float32)
+        kernel_slope = tf.Variable(1.0, dtype=tf.float32)
         kernel_parameters += [kernel_slope]
 
     kernel = gntp.kernels.get_kernel_by_name(kernel_name, slope=kernel_slope)
@@ -353,13 +351,13 @@ def main(argv):
                                 entity_embedding_size=entity_embedding_size,
                                 kernel_parameters=kernel_parameters)
 
-    saver = tfe.Saver(var_list=moe_model.get_trainable_variables(neural_kb))
+    saver = tf.train.Checkpoint(variables=moe_model.get_trainable_variables(neural_kb))
 
     if load_path is not None:
         logger.info('Loading model ..')
         saver.restore(load_path)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     batcher = Batcher(data, batch_size, nb_epochs, random_state, nb_corrupted_pairs, is_all, nb_aux_epochs)
     batches_per_epoch = batcher.nb_batches / nb_epochs if nb_epochs > 0 else 0
@@ -450,8 +448,8 @@ def main(argv):
         grads_and_vars = [(tf.clip_by_value(grad, -clip_value, clip_value), var)
                           for grad, var in zip(gradients, trainable_variables)]
 
-        optimizer.apply_gradients(grads_and_vars=grads_and_vars,
-                                  global_step=tf.train.get_or_create_global_step())
+        optimizer.apply_gradients(grads_and_vars=grads_and_vars)
+        tf.compat.v1.train.get_or_create_global_step().assign_add(1)
 
         if batch_no == 99:
             print('Training first 100 batches took {} seconds'.format(time.time() - start_time))

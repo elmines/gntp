@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import tensorflow as tf
+from contextlib import nullcontext
 
 import gntp
 
@@ -222,12 +223,12 @@ class NTP(BaseModel):
                 if tensorboard:
                     this_many = tf.reduce_sum(how_many_maxima)
 
-                    with tf.contrib.summary.always_record_summaries():
-                        tf.contrib.summary.scalar('multimax_gain_total',
+                    with nullcontext():
+                        tf.summary.scalar('multimax_gain_total',
                                                   this_many.numpy() / last_dim_size.value)
-                        tf.contrib.summary.scalar('multimax_gain_positive',
+                        tf.summary.scalar('multimax_gain_positive',
                                                   np.sum(new_target_inputs) / np.sum(target_inputs))
-                        tf.contrib.summary.scalar('multimax_gain_negative',
+                        tf.summary.scalar('multimax_gain_negative',
                                                   ((this_many.numpy() - np.sum(new_target_inputs)) /
                                                    (last_dim_size.value - np.sum(target_inputs))))
                 goal_scores = tf.concat([tf.boolean_mask(l, mw)

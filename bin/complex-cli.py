@@ -8,7 +8,6 @@ import argparse
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.eager as tfe
 
 from gntp.evaluation import fast_evaluate
 
@@ -113,27 +112,26 @@ def main(argv):
     save_ranks_prefix = args.save_ranks_prefix
 
     # fire up eager
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-
-    tf.enable_eager_execution(config=config)
+    tf.config.run_functions_eagerly(True)
+    for gpu in tf.config.list_physical_devices('GPU'):
+        tf.config.experimental.set_memory_growth(gpu, True)
 
     # set the seeds
-    tf.set_random_seed(seed)
+    tf.random.set_seed(seed)
     np.random.seed(seed)
     random_state = np.random.RandomState(seed)
 
     data = Data(train_path, dev_path, test_path, input_type=input_type)
     model = ComplEx()
     nkb = NeuralKB(data, entity_embedding_size, predicate_embedding_size, initializer_name=initializer_name)
-    saver = tfe.Saver(var_list=nkb.variables)
+    saver = tf.train.Checkpoint(variables=nkb.variables)
 
     if load_path is not None:
         logger.info('Loading model ..')
         saver.restore(load_path)
 
     # optimizer = tf.train.AdagradOptimizer(learning_rate=learning_rate)
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     batcher = Batcher(data, batch_size, nb_epochs, random_state, nb_corrupted_pairs=0, is_all=False)
 

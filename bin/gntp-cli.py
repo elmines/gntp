@@ -17,6 +17,7 @@ from memory_profiler import memory_usage
 import numpy as np
 
 import tensorflow as tf
+from contextlib import nullcontext
 
 from gntp.evaluation.classification import evaluate_classification
 from gntp.evaluation import evaluate
@@ -52,24 +53,26 @@ def checkpoint_load(_checkpoint_path, neural_kb, optimizer):
 
     # old format compatibility
     if os.path.exists(os.path.join(_checkpoint_path, "optim/")):
-        import tensorflow.contrib.eager as tfe
         checkpoint_optim_prefix = os.path.join(_checkpoint_path, "optim/")
         optim_checkpoint_path = tf.train.latest_checkpoint(checkpoint_optim_prefix)
         if optim_checkpoint_path is not None:
-            optim_checkpoint = tfe.Checkpoint(optimizer=optimizer, optimizer_step=tf.train.get_or_create_global_step())
+            optim_checkpoint = tf.train.Checkpoint(
+                optimizer=optimizer,
+                optimizer_step=tf.compat.v1.train.get_or_create_global_step(),
+            )
             optim_checkpoint.restore(optim_checkpoint_path)
             logger.info('   optimiser')
         else:
             logger.info("   ....couldn't find optim/, ignoring it (loading old model).")
 
-        model_saver = tfe.Saver(neural_kb.variables)
+        model_saver = tf.train.Checkpoint(variables=neural_kb.variables)
         model_saver.restore(model_saver_path)
 
     else:
-        model_saver = tf.train.Saver(neural_kb.variables +
-                                     optimizer.variables() +
-                                     [tf.train.get_or_create_global_step()])
-        model_saver.restore(None, model_saver_path)
+        model_saver = tf.compat.v1.train.Saver(neural_kb.variables +
+                                     optimizer.variables +
+                                     [tf.compat.v1.train.get_or_create_global_step()])
+        model_saver.restore(model_saver_path)
 
     logger.info('... loading done.')
 
@@ -107,12 +110,11 @@ def checkpoint_store(_checkpoint_path, neural_kb, optimizer, random_state, args)
     if not os.path.exists(_checkpoint_model_prefix):
         os.makedirs(_checkpoint_model_prefix)
 
-    var_list = neural_kb.variables + optimizer.variables() + [tf.train.get_or_create_global_step()]
-    _model_saver = tf.train.Saver(var_list=var_list)
+    var_list = neural_kb.variables + optimizer.variables + [tf.compat.v1.train.get_or_create_global_step()]
+    _model_saver = tf.compat.v1.train.Saver(var_list=var_list)
 
-    _model_saver.save(None,
-                      save_path=_checkpoint_model_prefix,
-                      global_step=tf.train.get_or_create_global_step())
+    _model_saver.save(save_path=_checkpoint_model_prefix,
+                      global_step=tf.compat.v1.train.get_or_create_global_step())
 
     pickle.dump(random_state, open(_variables_path, 'wb'))
 
@@ -166,8 +168,8 @@ def do_eval(evaluation_mode, model, neural_kb, data, batcher,
             if verbose:
                 print('Last AUC-PR ({}) {:.4f}'.format(dataset, auc))
             if tensorboard:
-                with tf.contrib.summary.always_record_summaries():
-                    tf.contrib.summary.scalar('performance_{}/auc_pr'.format(dataset), auc)
+                with nullcontext():
+                    tf.summary.scalar('performance_{}/auc_pr'.format(dataset), auc)
 
     elif evaluation_mode in {'ranking'}:
         datasets = [(data.dev_triples, 'Dev')] if dev_only else [(data.dev_triples, 'Dev'), (data.test_triples, 'Test')]
@@ -188,8 +190,8 @@ def do_eval(evaluation_mode, model, neural_kb, data, batcher,
                         if verbose:
                             logger.info("{}: {}".format(k, v))
                         if tensorboard:
-                            with tf.contrib.summary.always_record_summaries():
-                                tf.contrib.summary.scalar('performance_{}/{}'.format(eval_name, k), v)
+                            with nullcontext():
+                                tf.summary.scalar('performance_{}/{}'.format(eval_name, k), v)
 
     elif evaluation_mode in {'ntn'}:
         cut_point = None
@@ -447,13 +449,12 @@ def main(argv):
         test_batch_size = batch_size * (1 + nb_corrupted_pairs * 2 * (2 if is_all else 1))
 
     # fire up eager
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-
-    tf.enable_eager_execution(config=config)
+    tf.config.run_functions_eagerly(True)
+    for gpu in tf.config.list_physical_devices('GPU'):
+        tf.config.experimental.set_memory_growth(gpu, True)
 
     # set the seeds
-    tf.set_random_seed(seed)
+    tf.random.set_seed(seed)
     np.random.seed(seed)
     random_state = np.random.RandomState(seed)
 
@@ -540,7 +541,7 @@ def main(argv):
                          rule_embeddings_type=rule_embeddings_type,
                          use_concrete=use_concrete)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     if loading_type == 'checkpoint':
         logger.info("********** Resuming from an unfinished checkpoint **********")
@@ -566,9 +567,9 @@ def main(argv):
     batch_times = []
     logger.info('Starting training (for {} batches)..'.format(len(batcher.batches)))
 
-    if tf.train.get_or_create_global_step().numpy() > 0:
+    if tf.compat.v1.train.get_or_create_global_step().numpy() > 0:
         logger.info('...checkpoint restoration - resuming from batch no {}'.format(
-            tf.train.get_or_create_global_step().numpy() + 1))
+            tf.compat.v1.train.get_or_create_global_step().numpy() + 1))
 
     if tensorboard:
         # TODO add changeable params too
@@ -578,7 +579,7 @@ def main(argv):
             # this should never happen
             pass
 
-        writer = tf.contrib.summary.create_file_writer(dump_path)
+        writer = tf.summary.create_file_writer(dump_path)
         writer.set_as_default()
 
     per_epoch_losses = []
@@ -729,51 +730,51 @@ def main(argv):
             grads_and_vars = [(tf.clip_by_value(grad, -clip_value, clip_value), var)
                               for grad, var in zip(gradients, model_variables)]
 
-            optimizer.apply_gradients(grads_and_vars=grads_and_vars,
-                                      global_step=tf.train.get_or_create_global_step())
+            optimizer.apply_gradients(grads_and_vars=grads_and_vars)
+            tf.compat.v1.train.get_or_create_global_step().assign_add(1)
 
             if tensorboard:
-                with tf.contrib.summary.always_record_summaries():
-                    tf.contrib.summary.scalar('loss_total', loss)
-                    tf.contrib.summary.scalar('loss_ntp_model', model_loss)
+                with nullcontext():
+                    tf.summary.scalar('loss_total', loss)
+                    tf.summary.scalar('loss_ntp_model', model_loss)
                     if aux_loss_weight is not None and aux_loss_weight > 0.0:
-                        tf.contrib.summary.scalar('loss_aux_model', loss_aux)
+                        tf.summary.scalar('loss_aux_model', loss_aux)
                     if l2_weight != 0.0:
-                        tf.contrib.summary.scalar('loss_l2_weight', loss_l2_weight)
-                    tf.contrib.summary.histogram('embeddings_relation', neural_kb.relation_embeddings)
-                    tf.contrib.summary.histogram('embeddings_entity', neural_kb.entity_embeddings)
+                        tf.summary.scalar('loss_l2_weight', loss_l2_weight)
+                    tf.summary.histogram('embeddings_relation', neural_kb.relation_embeddings)
+                    tf.summary.histogram('embeddings_entity', neural_kb.entity_embeddings)
 
-                with tf.contrib.summary.always_record_summaries():
+                with nullcontext():
                     for grad, var in grads_and_vars:
-                        tf.contrib.summary.scalar('gradient_sparsity_{}'.format(var.name.replace(':', '__')),
+                        tf.summary.scalar('gradient_sparsity_{}'.format(var.name.replace(':', '__')),
                                                   tf.nn.zero_fraction(grad))
                         # if batch_end % data.nb_examples == 0 or batch_end % data.nb_examples == 1:
                         #     pdb.set_trace()
                         gradient_norm = tf.sqrt(tf.reduce_sum(tf.pow(grad, 2)))
-                        tf.contrib.summary.scalar('gradient_norm_{}'.format(var.name.replace(':', '__')),
+                        tf.summary.scalar('gradient_norm_{}'.format(var.name.replace(':', '__')),
                                                   gradient_norm)
-                        tf.contrib.summary.histogram('gradient_{}'.format(var.name.replace(':', '__')),
+                        tf.summary.histogram('gradient_{}'.format(var.name.replace(':', '__')),
                                                   grad)
-                        tf.contrib.summary.histogram('variable_{}'.format(var.name.replace(':', '__')),
+                        tf.summary.histogram('variable_{}'.format(var.name.replace(':', '__')),
                                                      var)
                         # gradient_values = tf.reduce_sum(tf.abs(grad))
-                        # tf.contrib.summary.scalar('gradient_values/{}'.format(var.name.replace(':', '__')),
+                        # tf.summary.scalar('gradient_values/{}'.format(var.name.replace(':', '__')),
                         #                           gradient_values)
 
                     # grads = [g for g, _ in grads_and_vars]
                     # flattened_grads = tf.concat([tf.reshape(t, [-1]) for t in grads], axis=0)
                     # flattened_vars = tf.concat([tf.reshape(t, [-1]) for t in neural_kb.variables], axis=0)
-                    # tf.contrib.summary.histogram('values_grad', flattened_grads)
-                    # tf.contrib.summary.histogram('values_var', flattened_vars)
+                    # tf.summary.histogram('values_grad', flattened_grads)
+                    # tf.summary.histogram('values_var', flattened_vars)
             if tensorboard:
-                with tf.contrib.summary.always_record_summaries():
-                    tf.contrib.summary.scalar('time_per_batch', time.time() - start_time)
+                with nullcontext():
+                    tf.summary.scalar('time_per_batch', time.time() - start_time)
             if tensorboard and is_epoch_end:
-                with tf.contrib.summary.always_record_summaries():
+                with nullcontext():
                     tb_pel = sum(per_epoch_losses)
                     if loss_aggregator == 'mean':
                         tb_pel /= len(per_epoch_losses)
-                    tf.contrib.summary.scalar('per_epoch_loss', tb_pel)
+                    tf.summary.scalar('per_epoch_loss', tb_pel)
 
             if is_epoch_end:
                 n_epochs_finished += 1
