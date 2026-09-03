@@ -31,20 +31,17 @@ dependencies = [
   "scikit-learn>=1.4,<2",
   "tabulate>=0.9",
   "termcolor>=2",
-  "tensorflow>=2.16,<2.19",
-  "tensorflow-probability>=0.24,<0.26",
-  "tf-keras>=2.16,<2.19",
+  "tensorflow[and-cuda]",
+  "tensorflow-probability",
+  "tf-keras",
   "tqdm>=4.66",
-  "faiss-gpu>=1.7.2",
+  "faiss-gpu>=1.8",
 ]
 
 [project.optional-dependencies]
 cli = [
   "memory-profiler>=0.61",
   "nltk>=3.8",
-]
-gpu = [
-  "tensorflow[and-cuda]>=2.16,<2.19",
 ]
 dev = [
   "pytest>=8",
