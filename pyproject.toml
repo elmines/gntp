@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gntp"
+version = "1.0.0"
+description = "Greedy Neural Theorem Prover"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10,<3.13"
+authors = [
+  { name = "Pasquale Minervini", email = "p.minervini@cs.ucl.ac.uk" },
+]
+keywords = ["tensorflow", "machine learning"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "numpy>=1.26,<3",
+  "scipy>=1.11,<2",
+  "nmslib>=2.1.1",
+  "parsimonious>=0.10",
+  "scikit-learn>=1.4,<2",
+  "tabulate>=0.9",
+  "termcolor>=2",
+  "tensorflow>=2.16,<2.19",
+  "tensorflow-probability>=0.24,<0.26",
+  "tf-keras>=2.16,<2.19",
+  "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+cli = [
+  "faiss-cpu>=1.8",
+  "memory-profiler>=0.61",
+  "nltk>=3.8",
+]
+gpu = [
+  "tensorflow[and-cuda]>=2.16,<2.19",
+]
+dev = [
+  "pytest>=8",
+  "pytest-forked>=1.6",
+  "pytest-xdist>=3.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/uclnlp/gntp"
+
+[tool.setuptools.packages.find]
+include = ["gntp*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

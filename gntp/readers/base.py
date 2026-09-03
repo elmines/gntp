@@ -26,8 +26,8 @@ class AverageReader:
 class LSTMReader:
     def __init__(self, input_dim=100, nb_layers=1):
         super(LSTMReader, self).__init__()
-        self.cells = [tf.contrib.rnn.LSTMCell(input_dim) for _ in range(nb_layers)]
-        self.multicell = tf.contrib.rnn.MultiRNNCell(self.cells)
+        self.cells = [tf.compat.v1.nn.rnn_cell.LSTMCell(input_dim) for _ in range(nb_layers)]
+        self.multicell = tf.compat.v1.nn.rnn_cell.MultiRNNCell(self.cells)
 
     def call(self, sequence, sequence_len):
         outputs, state = tf.nn.dynamic_rnn(cell=self.multicell,
@@ -42,7 +42,7 @@ class CNNReader:
                  activation=tf.nn.relu, pooling=tf.reduce_max):
         self.filters = []
         for i in range(nb_layers):
-            self.filters += [tf.get_variable('conv_{}_filter'.format(i), [conv_width, channels, out_channels])]
+            self.filters += [tf.compat.v1.get_variable('conv_{}_filter'.format(i), [conv_width, channels, out_channels])]
         self.activation = activation
         self.pooling = pooling
 

@@ -13,5 +13,5 @@ def logistic_loss(probabilities: tf.Tensor,
                   targets: np.ndarray,
                   epsilon: float = 1e-10):
     # this is sigmoid_cross_entropy without logits
-    loss = - targets * tf.log(clip(probabilities, epsilon)) - (1 - targets) * tf.log(clip(1.0 - probabilities, epsilon))
+    loss = - targets * tf.math.log(clip(probabilities, epsilon)) - (1 - targets) * tf.math.log(clip(1.0 - probabilities, epsilon))
     return loss

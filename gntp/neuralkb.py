@@ -2,7 +2,7 @@
 
 
 import tensorflow as tf
-import tensorflow.contrib.eager as tfe
+import tensorflow_probability as tfp
 
 import numpy as np
 
@@ -37,12 +37,12 @@ class NeuralKB:
         self.use_concrete = use_concrete
 
         uniform_initializer = tf.random_uniform_initializer(-1.0, 1.0)
-        xavier_initializer = tf.contrib.layers.xavier_initializer()
+        xavier_initializer = tf.keras.initializers.GlorotUniform()
 
         ntp_initializer = uniform_initializer if initializer_name == 'uniform' else xavier_initializer
 
         def variable(shape, name, initializer=ntp_initializer):
-            return tfe.Variable(initializer(shape), name=name) if shape[0] > 0 else None
+            return tf.Variable(initializer(shape), name=name) if shape[0] > 0 else None
 
         self.entity_embeddings = variable([data.nb_entities, entity_embedding_size], 'entity_embeddings')
         self.predicate_embeddings = variable([data.nb_predicates, predicate_embedding_size], 'predicate_embeddings')
@@ -184,7 +184,7 @@ class NeuralKB:
                                 if not training:
                                     attention_mask = tf.nn.softmax(term_graph/self.temp)
                                 else:
-                                    attention_mask = tf.contrib.distributions.RelaxedOneHotCategorical(
+                                    attention_mask = tfp.distributions.RelaxedOneHotCategorical(
                                         self.temp, logits=term_graph).sample()
 
                             term_graph = tf.einsum('cr,re->ce', attention_mask, self.relation_embeddings)

@@ -4,13 +4,13 @@ import numpy as np
 import tensorflow as tf
 
 
-class SRUFusedRNN(tf.contrib.rnn.FusedRNNCell):
+class SRUFusedRNN(tf.compat.v1.nn.rnn_cell.RNNCell):
     """Simple Recurrent Unit, very fast.  https://openreview.net/pdf?id=rJBiunlAW"""
 
     def __init__(self, num_units, f_bias=1.0, r_bias=0.0, with_residual=True):
         self._num_units = num_units
         cell = _SRUUpdateCell(num_units, with_residual)
-        self._rnn = tf.contrib.rnn.FusedRNNCellAdaptor(cell, use_dynamic_rnn=True)
+        self._cell = cell
         self._constant_bias = [0.0] * self._num_units + [f_bias] * self._num_units
         if with_residual:
             self._constant_bias += [r_bias] * self._num_units
@@ -20,8 +20,10 @@ class SRUFusedRNN(tf.contrib.rnn.FusedRNNCell):
 
     def __call__(self, inputs, initial_state=None, dtype=tf.float32, sequence_length=None, scope=None):
         num_gates = 3 if self._with_residual else 2
-        transformed = tf.layers.dense(inputs, num_gates * self._num_units,
-                                      bias_initializer=tf.constant_initializer(self._constant_bias))
+        transformed = tf.keras.layers.Dense(
+            num_gates * self._num_units,
+            bias_initializer=tf.constant_initializer(self._constant_bias),
+        )(inputs)
 
         gates = tf.split(transformed, num_gates, axis=2)
         forget_gate = tf.sigmoid(gates[1])
@@ -33,10 +35,18 @@ class SRUFusedRNN(tf.contrib.rnn.FusedRNNCell):
         else:
             new_inputs = tf.concat([transformed_inputs, forget_gate], axis=2)
 
-        return self._rnn(new_inputs, initial_state, dtype, sequence_length, scope)
+        return tf.compat.v1.nn.dynamic_rnn(
+            self._cell,
+            new_inputs,
+            sequence_length=sequence_length,
+            initial_state=initial_state,
+            dtype=dtype,
+            time_major=True,
+            scope=scope,
+        )
 
 
-class _SRUUpdateCell(tf.contrib.rnn.RNNCell):
+class _SRUUpdateCell(tf.compat.v1.nn.rnn_cell.RNNCell):
     """Simple Recurrent Unit, very fast.  https://openreview.net/pdf?id=rJBiunlAW"""
 
     def __init__(self, num_units, with_residual, activation=None, reuse=None):

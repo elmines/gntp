@@ -18,7 +18,7 @@ def fused_rnn_backward(fused_rnn, inputs, sequence_length,
 
 def fused_birnn(fused_rnn, inputs, sequence_length,
                 initial_state=(None, None), dtype=None, scope=None, time_major=False):
-    with tf.variable_scope(scope or "BiRNN"):
+    with tf.compat.v1.variable_scope(scope or "BiRNN"):
         sequence_length = tf.cast(sequence_length, tf.int32)
         if not time_major:
             inputs = tf.transpose(inputs, [1, 0, 2])

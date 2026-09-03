@@ -14,5 +14,5 @@ def sparse_softmax(logits, exponent=None, eps=1e-6, axis=-1):
     _logits = _logits ** exponent if exponent is not None else _logits
     normalizer = tf.reduce_sum(_logits, axis=axis)
     res = tf.einsum('cr,c->cr', _logits, 1.0 / normalizer)
-    res = tf.where(tf.is_nan(res), tf.zeros_like(res), res)
+    res = tf.where(tf.math.is_nan(res), tf.zeros_like(res), res)
     return res

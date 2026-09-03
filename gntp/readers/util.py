@@ -19,7 +19,7 @@ def fused_rnn_backward(fused_rnn, inputs, sequence_length,
 
 def fused_birnn(fused_rnn, inputs, sequence_length,
                 initial_state=(None, None), dtype=None, scope=None, time_major=False):
-    with tf.variable_scope(scope or "BiRNN"):
+    with tf.compat.v1.variable_scope(scope or "BiRNN"):
         sequence_length = tf.cast(sequence_length, tf.int32)
         if not time_major:
             inputs = tf.transpose(inputs, [1, 0, 2])
@@ -40,7 +40,7 @@ def _bi_rnn(fused_rnn, sequence, seq_length):
 
 
 def bi_lstm(size, sequence, seq_length):
-    fused_rnn = tf.contrib.rnn.LSTMBlockFusedCell(size)
+    fused_rnn = tf.compat.v1.nn.rnn_cell.LSTMCell(size)
     return _bi_rnn(fused_rnn, sequence, seq_length)
 
 
@@ -53,6 +53,6 @@ def convnet(repr_dim, inputs, num_layers, conv_width=3):
 
 def _convolutional_block(inputs, out_channels, conv_width=3, name='conv', activation=tf.nn.relu):
     channels = inputs.get_shape()[2].value
-    f = tf.get_variable(name + '_filter', [conv_width, channels, out_channels])
+    f = tf.compat.v1.get_variable(name + '_filter', [conv_width, channels, out_channels])
     output = tf.nn.conv1d(inputs, f, 1, padding='SAME', name=name)
     return activation(output)

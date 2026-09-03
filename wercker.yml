@@ -1,6 +1,6 @@
 # Wercker configuration file
 
-box: python:3.6
+box: python:3.12
 
 no-response-timeout: 600
 command-timeout: 600
@@ -12,8 +12,8 @@ build:
       code: |
         sudo apt-get update
         sudo apt-get -y install unzip libboost-all-dev libgsl0-dev libeigen3-dev libopenblas-dev python3-dev
-        python -m pip install --upgrade -r requirements.txt
-        python -m pip install -e .[tf]
+        python -m pip install uv
+        uv sync --extra cli --extra dev
         rm -rf .git
 
     - script:
