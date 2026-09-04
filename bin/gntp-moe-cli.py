@@ -451,7 +451,6 @@ def main(argv):
 
         gradients = tape.gradient(loss, trainable_variables)
         gradients_by_variable = {id(var): grad for grad, var in zip(gradients, trainable_variables)}
-        print(len(gradients_by_variable))
         grads_and_vars = [
             (tf.clip_by_value(gradients_by_variable.get(id(var), tf.zeros_like(var)),
                               -clip_value, clip_value), var)
