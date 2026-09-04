@@ -7,6 +7,7 @@ import nmslib
 
 import os
 import sys
+print(f"pid = {os.getpid()}")
 
 import argparse
 
