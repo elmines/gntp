@@ -2,6 +2,7 @@
 
 from typing import Union
 
+import torch
 import tensorflow as tf
 
-Tensor = Union[tf.Tensor, tf.Variable]
+Tensor = Union[torch.Tensor, tf.Tensor, tf.Variable]

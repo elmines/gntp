@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import tensorflow as tf
+import torch
 
 import gntp
 
@@ -14,15 +14,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def reshape(tensor: Union[tf.Tensor, str],
+def reshape(tensor: Union[torch.Tensor, str],
             embedding_size: int):
-    return tf.reshape(tensor, [-1, embedding_size]) if gntp.is_tensor(tensor) else tensor
+    return torch.reshape(tensor, [-1, embedding_size]) if gntp.is_tensor(tensor) else tensor
 
 
 def find_best_heads(index: BaseLookupIndex,
-                    atoms: List[Union[tf.Tensor, str]],
-                    goals: List[Union[tf.Tensor, str]],
-                    goal_shape: tf.TensorShape,
+                    atoms: List[Union[torch.Tensor, str]],
+                    goals: List[Union[torch.Tensor, str]],
+                    goal_shape,
                     k: int = 10,
                     is_training: bool = False,
                     goal_indices: Optional[List[Union[np.ndarray, str]]] = None,
@@ -36,27 +36,30 @@ def find_best_heads(index: BaseLookupIndex,
                                        position=position)
 
         actual_k = atom_indices.shape[-1]
-        new_shp = tf.TensorShape(actual_k).concatenate(goal_shape[:-1])
-        atom_indices = tf.cast(tf.reshape(tf.transpose(atom_indices), new_shp), tf.int32)
+        new_shp = (actual_k, *goal_shape[:-1])
+        atom_indices = torch.as_tensor(atom_indices, dtype=torch.int64)
+        atom_indices = torch.reshape(torch.transpose(atom_indices, 0, 1), new_shp)
     else:
         embedding_size = goal_shape[-1]
         new_goals = [reshape(ge, embedding_size) for ge in goals]
 
         ground_goals = [ge for fe, ge in zip(atoms, new_goals) if gntp.is_tensor(fe) and gntp.is_tensor(ge)]
 
-        max_dim = max([gg.get_shape()[0] for gg in ground_goals])
+        max_dim = max([gg.shape[0] for gg in ground_goals])
 
-        ground_goals = [tf.tile(goal, [max_dim // goal.get_shape()[0], 1]) for goal in ground_goals]
+        ground_goals = [torch.tile(goal, [max_dim // goal.shape[0], 1]) for goal in ground_goals]
 
         # [G, 3 E], or e.g. [K, 2 3] if facts or goals contains a variable
-        goals_2d = tf.concat(ground_goals, axis=1)
+        goals_2d = torch.cat(ground_goals, dim=1)
 
         # Facts in 'facts_2d' most relevant to the query in 'goals_2d'
-        atom_indices = index.query(goals_2d.numpy(),
+        query_data = goals_2d if isinstance(index, gntp.lookup.FAISSLookupIndex) else goals_2d.detach().cpu().numpy()
+        atom_indices = index.query(query_data,
                                    k=k,
                                    is_training=is_training)
 
         actual_k = atom_indices.shape[-1]
-        new_shp = tf.TensorShape(actual_k).concatenate(goal_shape[:-1])
-        atom_indices = tf.cast(tf.reshape(tf.transpose(atom_indices), new_shp), tf.int32)
+        new_shp = (actual_k, *goal_shape[:-1])
+        atom_indices = torch.as_tensor(atom_indices, dtype=torch.int64)
+        atom_indices = torch.reshape(torch.transpose(atom_indices, 0, 1), new_shp)
     return atom_indices
