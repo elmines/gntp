@@ -358,6 +358,7 @@ def main(argv):
         saver.restore(load_path)
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    all_trainable_variables = None
 
     batcher = Batcher(data, batch_size, nb_epochs, random_state, nb_corrupted_pairs, is_all, nb_aux_epochs)
     batches_per_epoch = batcher.nb_batches / nb_epochs if nb_epochs > 0 else 0
@@ -423,6 +424,10 @@ def main(argv):
                                                 is_auxiliary=is_auxiliary,
                                                 only_ntp0=train_ntp0_only)
 
+            if all_trainable_variables is None:
+                all_trainable_variables = moe_model.get_trainable_variables(neural_kb)
+                optimizer.build(all_trainable_variables)
+
             loss = moe_model.loss(target_inputs, final_scores)
 
             if is_debug is True:
@@ -445,8 +450,13 @@ def main(argv):
         logger.info('Loss @ batch {} on {}: {}'.format(batch_no, batcher.nb_batches, loss))
 
         gradients = tape.gradient(loss, trainable_variables)
-        grads_and_vars = [(tf.clip_by_value(grad, -clip_value, clip_value), var)
-                          for grad, var in zip(gradients, trainable_variables)]
+        gradients_by_variable = {id(var): grad for grad, var in zip(gradients, trainable_variables)}
+        print(len(gradients_by_variable))
+        grads_and_vars = [
+            (tf.clip_by_value(gradients_by_variable.get(id(var), tf.zeros_like(var)),
+                              -clip_value, clip_value), var)
+            for var in all_trainable_variables
+        ]
 
         optimizer.apply_gradients(grads_and_vars=grads_and_vars)
         tf.compat.v1.train.get_or_create_global_step().assign_add(1)

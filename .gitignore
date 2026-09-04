@@ -1,5 +1,6 @@
 # Ethan's .venv
 .venv/
+checkpoints/
 
 # Slurm files
 *.out
