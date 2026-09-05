@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import tensorflow as tf
+import torch
 
 import gntp
 
@@ -22,8 +22,8 @@ class LookupIndexStore:
 
     # atoms is e.g. [KE, KE, KE], goals is e.g. [GE, X, GE]
     def get_or_create(self,
-                      atoms: List[Union[tf.Tensor, str]],
-                      goals: List[Union[tf.Tensor, str]],
+                      atoms: List[Union[torch.Tensor, str]],
+                      goals: List[Union[torch.Tensor, str]],
                       index_refresh_rate: int,
                       position: int,
                       is_training: bool = True):
@@ -40,8 +40,9 @@ class LookupIndexStore:
                 index = self.index_class(**self.index_params)
             else:
                 ground_atoms = [ae for ae, ge in zip(atoms, goals) if gntp.is_tensor(ae) and gntp.is_tensor(ge)]
-                atom_2d = tf.concat(ground_atoms, axis=1)
-                index = self.index_class(data=atom_2d.numpy(), **self.index_params)
+                atom_2d = torch.cat(ground_atoms, dim=1)
+                data = atom_2d if self.index_type.startswith('faiss') else atom_2d.detach().cpu().numpy()
+                index = self.index_class(data=data, **self.index_params)
 
             self.store[key] = index
 
@@ -53,8 +54,9 @@ class LookupIndexStore:
                     index = self.index_class(**self.index_params)
                 else:
                     ground_atoms = [ae for ae, ge in zip(atoms, goals) if gntp.is_tensor(ae) and gntp.is_tensor(ge)]
-                    atom_2d = tf.concat(ground_atoms, axis=1)
-                    index = self.index_class(data=atom_2d.numpy(), **self.index_params)
+                    atom_2d = torch.cat(ground_atoms, dim=1)
+                    data = atom_2d if self.index_type.startswith('faiss') else atom_2d.detach().cpu().numpy()
+                    index = self.index_class(data=data, **self.index_params)
 
                 self.store[key] = index
 

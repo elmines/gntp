@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import torch
 import tensorflow as tf
 
 import gntp
@@ -11,7 +12,7 @@ from collections.abc import Iterable
 
 
 def is_tensor(atom_elem):
-    return isinstance(atom_elem, tf.Tensor) or isinstance(atom_elem, tf.Variable)
+    return isinstance(atom_elem, torch.Tensor) or isinstance(atom_elem, tf.Tensor) or isinstance(atom_elem, tf.Variable)
 
 
 def is_variable(atom_elem):
@@ -21,7 +22,7 @@ def is_variable(atom_elem):
 def atom_to_str(atom):
     if isinstance(atom, Iterable):
         def _to_show(e):
-            return e.get_shape() if is_tensor(e) else e.shape if isinstance(e, np.ndarray) else e
+            return e.shape if is_tensor(e) else e.shape if isinstance(e, np.ndarray) else e
         body_str = str([_to_show(e) for e in atom])
         body_str = body_str.replace('Dimension', '')
     else:
